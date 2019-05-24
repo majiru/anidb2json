@@ -39,6 +39,8 @@ const infostrip = `Specials|DVD|BD|Complete|v[0-9]+|(E[pP])*[0-9]+[ ]*[-~][ ]*[0
 
 const tidystrip = `[ ]+|-|~|:|\?|'|\.|_`
 
+const extstrip = `\.(mkv|mp4)$`
+
 func ParseTitleDB(xmldb io.Reader) (tdb *TitleDB, titles map[string]*Anime, err error) {
 	content, err := ioutil.ReadAll(xmldb)
 	if err != nil {
@@ -82,7 +84,9 @@ func containsMedia(path string) bool {
 }
 
 func cleanName(name string) string {
-	strip := regexp.MustCompile(infostrip)
+	strip := regexp.MustCompile(extstrip)
+	name = strip.ReplaceAllString(name, "")
+	strip = regexp.MustCompile(infostrip)
 	name = strip.ReplaceAllString(name, "")
 	strip = regexp.MustCompile(tidystrip)
 	name = strip.ReplaceAllString(name, "")
