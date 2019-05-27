@@ -35,13 +35,17 @@ type Title struct {
 	Type    string   `xml:"type,attr"`
 }
 
-const infostrip = `Specials|DVD|BD|Complete|v[0-9]+|(E[pP])*[0-9]+[ ]*[-~][ ]*[0-9]+|[bB]atch|((720)|(1080))([pP]*)|\(.*?\)|\[.*?\]`
+type Lookup map[string]*Anime
+
+const infostrip = `Specials|OVA|DVD|BD|Complete|v[0-9]+|(E[pP])*[0-9]+[ ]*[-~][ ]*[0-9]+|[bB]atch|((720)|(1080))([pP]*)|\(.*?\)|\[.*?\]`
 
 const tidystrip = `[ ]+|-|~|:|\?|'|\.|_`
 
+const epnumstrip = `[ ][0-9]{2,}`
+
 const extstrip = `\.(mkv|mp4)$`
 
-func ParseTitleDB(xmldb io.Reader) (tdb *TitleDB, titles map[string]*Anime, err error) {
+func ParseTitleDB(xmldb io.Reader) (tdb *TitleDB, titles Lookup, err error) {
 	content, err := ioutil.ReadAll(xmldb)
 	if err != nil {
 		return
@@ -84,38 +88,66 @@ func containsMedia(path string) bool {
 }
 
 func cleanName(name string) string {
-	strip := regexp.MustCompile(extstrip)
-	name = strip.ReplaceAllString(name, "")
-	strip = regexp.MustCompile(infostrip)
+	if strings.HasSuffix(name, ".mkv") || strings.HasSuffix(name, ".mp4") {
+		strip := regexp.MustCompile(extstrip)
+		name = strip.ReplaceAllString(name, "")
+		strip = regexp.MustCompile(epnumstrip)
+		name = strip.ReplaceAllString(name, "")
+	}
+	strip := regexp.MustCompile(infostrip)
 	name = strip.ReplaceAllString(name, "")
 	strip = regexp.MustCompile(tidystrip)
 	name = strip.ReplaceAllString(name, "")
 	return name
 }
 
-func Parsedir(fpath string, titles map[string]*Anime) (found *TitleDB, err error) {
-	files, err := ioutil.ReadDir(fpath)
+func (l Lookup) match(fpath string, fi os.FileInfo) (ani *Anime, firstmatch bool, err error) {
+	var (
+		ok    bool
+		files []os.FileInfo
+	)
+	if ani, ok = l[strings.ToLower(cleanName(fi.Name()))]; ok {
+		firstmatch = (len(ani.Path) == 0)
+		if fi.IsDir() {
+			files, err = ioutil.ReadDir(fpath)
+			if err != nil {
+				return
+			}
+			for _, f := range files {
+				ani.Path = append(ani.Path, path.Join(fpath, f.Name()))
+			}
+		} else {
+			ani.Path = append(ani.Path, fpath)
+		}
+		return
+	}
+	log.Println(fpath, "not matched. Stripped name was:", strings.ToLower(cleanName(fi.Name())))
+	err = os.ErrNotExist
+	return
+}
+
+func (l Lookup) find(fpath string) (found []*Anime) {
+	fi, err := ioutil.ReadDir(fpath)
 	if err != nil {
 		return
 	}
-	found = &TitleDB{}
-	for _, f := range files {
+	for _, f := range fi {
 		abs := path.Join(fpath, f.Name())
-		if containsMedia(abs) {
-			name := strings.ToLower(cleanName(f.Name()))
-			if ani, ok := titles[name]; ok {
-				ani.Path = append(ani.Path, abs)
-				if len(ani.Path) > 1 {
-					log.Printf("Duplicate: %s has multiple entries %v\n", abs, ani.Path)
-				} else {
-					found.Anime = append(found.Anime, ani)
-				}
-			} else {
-				log.Println("Not Found:", abs, "was not able to be found in the db")
-			}
+		if !containsMedia(abs) {
+			continue
+		}
+		ani, firstmatch, err := l.match(abs, f)
+		if firstmatch {
+			found = append(found, ani)
+		} else if f.IsDir() && err == os.ErrNotExist {
+			found = append(found, l.find(abs)...)
 		}
 	}
 	return
+}
+
+func (l Lookup) ParseDir(root string) *TitleDB {
+	return &TitleDB{Anime: l.find(root)}
 }
 
 func fetch(ani *Anime) (content []byte, err error) {

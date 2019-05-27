@@ -31,14 +31,12 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	tdb, err = anidb2json.Parsedir(mediadir, titles)
-	if err != nil {
-		log.Fatal(err)
-	}
+	tdb = titles.ParseDir(mediadir)
 	err = anidb2json.FillAdditional(tdb, cachedir)
 	if err != nil {
 		log.Fatal(err)
 	}
+	log.Printf("Parsed %d shows\n", len(tdb.Anime))
 	b, err := json.Marshal(tdb)
 	if err != nil {
 		log.Fatal(err)
