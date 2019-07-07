@@ -26,6 +26,8 @@ type Anime struct {
 	Path        []string `json:"paths"`
 	Picture     string   `xml:"picture" json:"picture"`
 	Description string   `xml:"description" json:"description"`
+	Tags        []Tag     `xml:"tags>tag>name" json:"tags"`
+	Creators	[]Creator	`xml:"creators>name" json:"creators"`
 }
 
 type Title struct {
@@ -33,6 +35,17 @@ type Title struct {
 	Title   string   `xml:",chardata"`
 	Lang    string   `xml:"xml:lang,attr"`
 	Type    string   `xml:"type,attr"`
+}
+
+type Tag struct {
+	XMLName xml.Name `xml:"name" json:"-"`
+	Name string `xml:",chardata" json:"name"`
+}
+
+type Creator struct {
+	XMLName xml.Name `xml:"name" json:"-"`
+	Role string `xml:"type,attr" json:"role"`
+	Name string `xml:",chardata" json:"name"`
 }
 
 type Lookup map[string]*Anime
