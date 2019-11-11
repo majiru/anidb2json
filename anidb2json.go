@@ -19,15 +19,15 @@ type TitleDB struct {
 }
 
 type Anime struct {
-	XMLName     xml.Name `xml:"anime" json:"-"`
-	ID          string   `xml:"aid,attr" json:"ID"`
-	Titles      []Title  `xml:"title" json:"-"`
-	Name        string   `json:"name"`
-	Path        []string `json:"paths"`
-	Picture     string   `xml:"picture" json:"picture"`
-	Description string   `xml:"description" json:"description"`
+	XMLName     xml.Name  `xml:"anime" json:"-"`
+	ID          string    `xml:"aid,attr" json:"ID"`
+	Titles      []Title   `xml:"title" json:"-"`
+	Name        string    `json:"name"`
+	Path        []string  `json:"paths"`
+	Picture     string    `xml:"picture" json:"picture"`
+	Description string    `xml:"description" json:"description"`
 	Tags        []Tag     `xml:"tags>tag>name" json:"tags"`
-	Creators	[]Creator	`xml:"creators>name" json:"creators"`
+	Creators    []Creator `xml:"creators>name" json:"creators"`
 }
 
 type Title struct {
@@ -39,13 +39,13 @@ type Title struct {
 
 type Tag struct {
 	XMLName xml.Name `xml:"name" json:"-"`
-	Name string `xml:",chardata" json:"name"`
+	Name    string   `xml:",chardata" json:"name"`
 }
 
 type Creator struct {
 	XMLName xml.Name `xml:"name" json:"-"`
-	Role string `xml:"type,attr" json:"role"`
-	Name string `xml:",chardata" json:"name"`
+	Role    string   `xml:"type,attr" json:"role"`
+	Name    string   `xml:",chardata" json:"name"`
 }
 
 type Lookup map[string]*Anime
@@ -56,7 +56,11 @@ const tidystrip = `[ ]+|-|~|:|\?|'|\.|_`
 
 const epnumstrip = `[ ][0-9]{2,}`
 
-const extstrip = `\.(mkv|mp4)$`
+const extstrip = `\.(mkv|mp4|avi)$`
+
+func isMedia(name string) bool {
+	return strings.HasSuffix(name, ".mkv") || strings.HasSuffix(name, ".mp4") || strings.HasSuffix(name, ".avi")
+}
 
 func ParseTitleDB(xmldb io.Reader) (tdb *TitleDB, titles Lookup, err error) {
 	content, err := ioutil.ReadAll(xmldb)
@@ -83,7 +87,7 @@ func ParseTitleDB(xmldb io.Reader) (tdb *TitleDB, titles Lookup, err error) {
 }
 
 func containsMedia(path string) bool {
-	if strings.HasSuffix(path, ".mkv") || strings.HasSuffix(path, ".mp4") {
+	if isMedia(path) {
 		return true
 	}
 	files, err := ioutil.ReadDir(path)
@@ -92,7 +96,7 @@ func containsMedia(path string) bool {
 	}
 	for _, f := range files {
 		if f.IsDir() == false {
-			if strings.HasSuffix(f.Name(), ".mkv") || strings.HasSuffix(f.Name(), ".mp4") {
+			if isMedia(f.Name()) {
 				return true
 			}
 		}
@@ -101,7 +105,7 @@ func containsMedia(path string) bool {
 }
 
 func cleanName(name string) string {
-	if strings.HasSuffix(name, ".mkv") || strings.HasSuffix(name, ".mp4") {
+	if isMedia(name) {
 		strip := regexp.MustCompile(extstrip)
 		name = strip.ReplaceAllString(name, "")
 		strip = regexp.MustCompile(epnumstrip)
